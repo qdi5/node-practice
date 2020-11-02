@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>生成表单页面</title>
+		<link rel="stylesheet" href="/stylesheets/tooltip.css">
+		<style>
+			section {
+				text-align: center;
+			}
+			.code-wrapper {
+				width: 80%;
+				height: 60vh;
+				margin: 0 auto;
+			}
+			.btn {
+				padding: 25px 35px 25px 55px;
+				color: #fff;
+				background: rgba(0, 0, 0, 0.8);
+				display: block;
+				margin: 0 auto;
+				font-size: 20px;
+				letter-spacing: 5px;
+				cursor: pointer;
+				text-align: center;
+			}
+			.file-btn-wrapper {
+				text-align: center;
+			}
+			.file-btn {
+				display: inline-block;
+				position: relative;
+				height: 35px;
+				overflow: hidden;
+				cursor: pointer;
+			}
+			.file-btn input[type='file'] {
+				width: 100%;
+				position: absolute;
+				left: 0;
+				top: 0;
+				bottom: 0;
+				right: 0;
+				display: block;
+				background: green;
+				opacity: 0;
+				z-index: 1;
+				cursor: pointer;
+			}
+			.file-btn button {
+				width: 100%;
+				height: 100%;
+				background-color: #fff;
+				color: #000;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="file-btn-wrapper">
+			<a class="file-btn" href="javascript:void(0);">
+				<input type="file" value="选择文件" accept=".java" id="file">
+				<button>选择java实体类文件</button>
+			</a>
+		</div>
+		<section>
+			<textarea readOnly name="" id="htmlWrapper" cols="30" rows="10" class="code-wrapper"></textarea>
+			<button data-clipboard-target="#htmlWrapper" class="clipboard-btn btn">复制代码</button>
+		</section>
+		<div class="preview">
+			<ul id="preview"></ul>
+		</div>
+		<script src="/javascripts/clipboard.js"></script>
+		<script src="/javascripts/tooltips.js"></script>
+		<script>
+			let fileEle = document.getElementById('file')
+			fileEle.addEventListener('change', function(e) {
+				console.log('file', this.files[0])
+				readTxt(this.files[0], function(data){
+					console.log('data:\n', data)
+					fetch('/work/generateForm', {
+						body: JSON.stringify(data),
+						method: 'POST',
+						headers: {
+							'content-type': 'application/json'
+						}
+					}).then(response => {
+						debugger;
+						return response.json()
+					}).then(myjson => {
+						console.log('myjson:', myjson)
+						
+						document.getElementById('htmlWrapper').innerHTML = myjson.data
+						let ul = document.getElementById('preview')
+						let li = document.createElement('li')
+						let a = document.createElement('a')
+						a.href = myjson.previewUrl
+						a.appendChild(document.createTextNode('预览地址'))
+						li.appendChild(a)
+						ul.appendChild(li)
+					}).catch(err => {
+						throw err
+					})
+				}, function(error) {
+					
+				}, false)
+			}, false)
+			let clipboard = new ClipboardJS('.clipboard-btn')
+			clipboard.on('success', e => {
+				debugger
+				console.info('Action:', e.action)
+				console.info('Text:', e.text)
+				console.info('Trigger:', e.trigger)
+				showTooltip(e.trigger, '复制成功')
+				e.clearSelection()
+			})
+			var readTxt = (function(w) {
+				//常量
+				var __DEFAULT__ = {
+					exp: {
+						trim: /\s/, //匹配空格
+						rn: /\r\n/g //匹配换行
+					},
+				errorMsg: {
+				readError: "读取文件出错！",
+				interruptError: "读取文件异常中断！"
+					  }
+				};
+		
+				//保存txt解析后的数据
+				 var ary = [],
+		
+				//存储对象keys的数组
+				attrs = [],
+		
+				//存储所有行的数据的数组
+				 vals = [];
+		
+				function read(file, successFn, beforeFn, isShowProgress) {
+		
+				var reader = new FileReader();
+		
+				//开始读取数据之前触发
+				 reader.onloadstart = function() {
+					console.time();
+					beforeFn && beforeFn();
+				};
+		
+				//读取中触发(读取进度)
+				 reader.onprogress = function(e) {
+					if(typeof isShowProgress === 'boolean' && isShowProgress) {
+						var loaded = e.loaded,
+						total = e.total,
+						percent = parseFloat(loaded/total).toFixed(2);
+						showProgress(percent);
+				}
+				};
+		
+				function showProgress(p) {
+					progress.style.display = 'block';
+					progress.style.width = p*100 +'%';
+					progress.innerHTML = p*100 +'%';
+				}
+				//文件读取出错
+				 reader.onerror = function() {
+				//提示错误  
+				alert(__DEFAULT__.errorMsg.readError);
+				};
+		
+				//文件读取中断触发
+				reader.onabort = function() {
+				  alert(__DEFAULT__.errorMsg.interruptError);
+				};
+		
+				//文件读取完成后调用，不管读取成功还是失败
+				reader.onloadend = function() {
+					reader = null;
+					console.timeEnd();
+				};
+		
+				//文件成功读取触发
+				reader.onload = function(){
+					debugger
+					var txtData = this.result;
+					// 匹配java实体类的声明部分
+					let multiNotation = /\/\**[\s\r\n\t]*(\s*\*+[\s\r\n\t]*)*\*\s*[\u4e00-\u9fa5a-zA-Z]+[\s\r\n\t]\s*\*\//
+					let javaModelExp =/\/\/[\s\t]*([\u4e00-\u9fa5]+\w*)[\r\n\t]*(?:@.+[\r\n\t]*\s*)*\s*\w+\s*(?:byte|short|int|long|float|double|boolean|char|String|Integer|Date|Character|BigDecimal)[\s\t]+([$_a-zA-Z]\w+)/gim
+					let expResult
+					let result = []
+					while ((expResult = javaModelExp.exec(txtData)) !== null) {
+						let temp = {}
+						// 获取分组一和分组二的值;(分别对应 实体中文名 和实体英文名)
+						// console.log(expResult[1], expResult[2])
+						// temp[expResult[2]] = expResult[1]
+						temp['fieldKey'] = expResult[1]
+						temp['fieldValue'] = expResult[2]
+						result.push(temp)
+					}
+					
+					successFn && successFn(result)
+				};
+					reader.readAsText(file, "utf-8");
+				}
+		
+				//是否是数组
+				read.isArray = function(ary) {
+				return typeof ary === 'object' && typeof ary.length !== "undefined" && ary instanceof Array;
+				};
+		
+				
+				return read;
+			})(window);
+		</script>
+	</body>
+</html>

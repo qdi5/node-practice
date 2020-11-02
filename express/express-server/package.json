@@ -1,0 +1,27 @@
+{
+  "name": "expressserve",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www",
+    "dev": "nodemon --inspect --delay 2500ms ./bin/www"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "cheerio": "^1.0.0-rc.3",
+    "clipboard": "^2.0.4",
+    "cookie-parser": "~1.4.3",
+    "debug": "~2.6.9",
+    "ejs": "~2.5.7",
+    "express": "~4.16.0",
+    "fastclick": "^1.0.6",
+    "http-errors": "~1.6.2",
+    "jquery": "^3.4.1",
+    "lodash": "^4.17.11",
+    "morgan": "~1.9.0",
+    "multer": "^1.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.2"
+  }
+}
